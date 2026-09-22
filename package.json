@@ -1,6 +1,6 @@
 {
-  "name": "use-jev",
-  "version": "0.3.0",
+  "name": "@silkyland/use-jev",
+  "version": "0.3.1",
   "description": "MCP server + CLI that expose TypeSafe's Jev judgment model as typed noul/choice/score tools, with escalation, an action gate and four interchangeable backends",
   "type": "module",
   "main": "index.mjs",
@@ -44,5 +44,16 @@
     "README.md",
     "LICENSE",
     "NOTICE"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silkyland/use-jev.git"
+  },
+  "homepage": "https://github.com/silkyland/use-jev#readme",
+  "bugs": {
+    "url": "https://github.com/silkyland/use-jev/issues"
+  }
 }

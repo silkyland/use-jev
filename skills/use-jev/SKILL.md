@@ -1,6 +1,18 @@
 ---
 name: use-jev
-description: Use when a step is a DECISION over facts you already have, rather than a piece of writing — labelling, filtering, ranking or triaging many items; deciding whether a run, command, build or claim succeeded; picking the next action from options you can list; selecting which of several candidates you already found is the intended one; judging safety, risk, quality or severity; screening untrusted text before it enters context. Route by where the facts are and whether anything is blocked: facts already in context go to the jev_ask tool with EVERY question batched into ONE call; items sitting in a file or in tool output go through the `use-jev judge` CLI from a script so the data never enters the conversation; one irreversible action goes to jev_gate; gating every tool call belongs in the `use-jev gate --hook` PreToolUse hook, not in a call made by hand. Always honour a verdict with escalate:true. Do NOT use for producing new text or code, for exact matches (ids, amounts, dates, counts), for options that cannot be enumerated, or for images — Jev reads text only.
+description: >-
+  Use when a step is a DECISION over facts you already have, rather than a piece of writing —
+  labelling, filtering, ranking or triaging many items; deciding whether a run, command, build
+  or claim succeeded; picking the next action from options you can list; selecting which of
+  several candidates you already found is the intended one; judging safety, risk, quality or
+  severity; screening untrusted text before it enters context. Route by where the facts are and
+  whether anything is blocked: facts already in context go to the jev_ask tool with EVERY
+  question batched into ONE call; items sitting in a file or in tool output go through the
+  `use-jev judge` CLI from a script so the data never enters the conversation; one irreversible
+  action goes to jev_gate; gating every tool call belongs in the `use-jev gate --hook`
+  PreToolUse hook, not in a call made by hand. Always honour a verdict with escalate:true. Do
+  NOT use for producing new text or code, for exact matches (ids, amounts, dates, counts), for
+  options that cannot be enumerated, or for images — Jev reads text only.
 ---
 
 # use-jev — handing a decision to Jev
@@ -144,7 +156,7 @@ use-jev judge --questions-file q.json [--state-file f]  # or pipe the state on s
 use-jev hook-config                                   # print the PreToolUse fragment (opt in)
 ```
 
-If `use-jev` is not on PATH, `npx -y use-jev <command>` works, or run `cli.mjs` from the
+If `use-jev` is not on PATH, `npx -y @silkyland/use-jev <command>` works, or run `cli.mjs` from the
 package directory — `use-jev doctor` prints where that is.
 
 If a `jev_*` tool reports an auth or configuration problem, call `jev_status` first — it names

@@ -1,5 +1,9 @@
 # use-jev
 
+[![npm](https://img.shields.io/npm/v/@silkyland/use-jev)](https://www.npmjs.com/package/@silkyland/use-jev)
+[![skills.sh](https://skills.sh/b/silkyland/use-jev)](https://skills.sh/silkyland/use-jev)
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 MCP server **and** CLI that expose TypeSafe's **System One** API (model: **Jev**) to any
 MCP-capable agent — with escalation, an action gate, and four interchangeable backends.
 
@@ -16,7 +20,14 @@ plus typed questions and returns typed answers with calibrated probabilities. Se
 ## Install
 
 ```bash
-npx -y use-jev install          # or, from a clone: npm install && node cli.mjs install
+npx -y @silkyland/use-jev install     # or, from a clone: npm install && node cli.mjs install
+```
+
+Want only the routing skill, without the server? The
+[skills](https://github.com/vercel-labs/skills) CLI reads this repo directly:
+
+```bash
+npx -y skills add silkyland/use-jev
 ```
 
 `install` detects the agents present on the machine, writes an MCP entry for each, links the
@@ -32,19 +43,20 @@ Then give it a credential and check:
 
 ```bash
 export TYPESAFE_API_KEY=...     # or OPENROUTER_API_KEY, or AI_GATEWAY_API_KEY
-npx -y use-jev doctor
+npx -y @silkyland/use-jev doctor
 ```
 
 Prefer a file if you want one credential for **every** agent, since it is read by whichever
 agent launches the server:
 
 ```bash
-mkdir -p ~/.use-jev
-cp "$(npx -y use-jev doctor | awk '/package/{print $2}')/config.example.json" ~/.use-jev/config.json
+mkdir -p ~/.use-jev && cat > ~/.use-jev/config.json <<'JSON'
+{ "backend": "auto", "apiKey": "PUT-YOUR-TYPESAFE-KEY-HERE" }
+JSON
 chmod 600 ~/.use-jev/config.json
 ```
 
-Fill in only the providers you use. `baseUrl` is an **origin** (a trailing `/v1` is tolerated).
+`config.example.json` in this package lists every field. Fill in only the providers you use. `baseUrl` is an **origin** (a trailing `/v1` is tolerated).
 
 **Headless runs need a permission rule.** No permission mode auto-allows an MCP tool, so a
 non-interactive run has nobody to ask and the call is refused. Add to your agent's settings:

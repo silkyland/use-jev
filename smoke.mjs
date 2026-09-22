@@ -335,6 +335,22 @@ console.log("\n[3b] path resolution and the installer");
   check("hook-config emits the PreToolUse shape", Array.isArray(fragment.hooks?.PreToolUse) && /gate --hook$/.test(hookCmd));
   check("hook-config resolves paths instead of relying on PATH", hookCmd.startsWith("/"), hookCmd);
 
+  // The skill's frontmatter must be valid YAML. A plain scalar containing ": "
+  // parses as a nested mapping, which silently made the skills CLI reject the
+  // whole file while Claude Code's looser parser still accepted it.
+  const skillText = readFileSync(join(paths.SKILL_DIR, "SKILL.md"), "utf8");
+  const fm = skillText.match(/^---\n([\s\S]*?)\n---\n/);
+  check("SKILL.md has frontmatter", Boolean(fm));
+  const descLine = fm?.[1].split("\n").find((l) => l.startsWith("description:"));
+  const folded = /^description:\s*[>|][-+]?\s*$/.test(descLine ?? "");
+  const inlineValue = (descLine ?? "").slice("description:".length);
+  check(
+    "SKILL.md description is a block scalar, or a plain one with no \": \"",
+    folded || !inlineValue.includes(": "),
+    folded ? "folded block scalar" : `inline: ${inlineValue.trim().slice(0, 40)}`,
+  );
+  check("SKILL.md declares a name", /^name:\s*\S+/m.test(fm?.[1] ?? ""));
+
   const bad = await run(process.execPath, [cli, "install", "--agent", "not-an-agent"]).catch((e) => e);
   check("install rejects an unknown --agent", bad.code === 2 && /unknown agent/.test(bad.stderr ?? ""));
 
