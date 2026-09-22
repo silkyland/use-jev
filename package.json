@@ -1,0 +1,48 @@
+{
+  "name": "use-jev",
+  "version": "0.3.0",
+  "description": "MCP server + CLI that expose TypeSafe's Jev judgment model as typed noul/choice/score tools, with escalation, an action gate and four interchangeable backends",
+  "type": "module",
+  "main": "index.mjs",
+  "bin": {
+    "use-jev": "cli.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:agents": "node cli.mjs install",
+    "doctor": "node cli.mjs doctor",
+    "serve": "node cli.mjs serve",
+    "test": "node smoke.mjs"
+  },
+  "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "license": "MIT",
+  "author": "Bundit Nuntates",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "typesafe",
+    "jev",
+    "system-one",
+    "llm",
+    "agent",
+    "classification",
+    "guardrails"
+  ],
+  "files": [
+    "index.mjs",
+    "cli.mjs",
+    "lib/",
+    "skills/",
+    "smoke.mjs",
+    "config.example.json",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ]
+}

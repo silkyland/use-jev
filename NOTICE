@@ -1,0 +1,19 @@
+use-jev
+Copyright (c) 2026 Bundit Nuntates — MIT (see LICENSE)
+
+This project's escalation contract, its two calibrated confidence thresholds
+(reported 0.5 / estimated 0.4), its deterministic pre-call routing, its action
+gate, and the tighten-only / fail-open rules for the PreToolUse hook are
+ADAPTED FROM:
+
+    jev-use — https://github.com/shitianfang/jev-use
+    Copyright (c) shitianfang — MIT License
+
+The OpenRouter (/api/alpha/decisions) and Vercel AI Gateway
+(/v4/ai/evaluation-model) wire formats implemented in lib/backends.mjs are also
+documented by that project; they do not appear in TypeSafe's own documentation.
+No source code was copied — the implementations here are independent — but the
+design owes it a clear debt, and it remains the more complete package.
+
+TypeSafe, System One and Jev are products of TypeSafe AI
+(https://typesafe.ai). This project is an unaffiliated client.

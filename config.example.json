@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy to ~/.use-jev/config.json and chmod 600. Fill in only the providers you use; delete the rest. backend: typesafe | openrouter | vercel | mock | auto (auto picks the first credential it finds).",
+  "backend": "auto",
+  "apiKey": "PUT-YOUR-TYPESAFE-KEY-HERE",
+  "openrouterApiKey": "",
+  "vercelApiKey": "",
+  "model": "",
+  "confidenceThreshold": null,
+  "baseUrl": ""
+}
