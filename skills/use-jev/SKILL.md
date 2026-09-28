@@ -1,18 +1,17 @@
 ---
 name: use-jev
 description: >-
-  Use when a step is a DECISION over facts you already have, rather than a piece of writing —
-  labelling, filtering, ranking or triaging many items; deciding whether a run, command, build
-  or claim succeeded; picking the next action from options you can list; selecting which of
-  several candidates you already found is the intended one; judging safety, risk, quality or
-  severity; screening untrusted text before it enters context. Route by where the facts are and
-  whether anything is blocked: facts already in context go to the jev_ask tool with EVERY
-  question batched into ONE call; items sitting in a file or in tool output go through the
-  `use-jev judge` CLI from a script so the data never enters the conversation; one irreversible
-  action goes to jev_gate; gating every tool call belongs in the `use-jev gate --hook`
-  PreToolUse hook, not in a call made by hand. Always honour a verdict with escalate:true. Do
-  NOT use for producing new text or code, for exact matches (ids, amounts, dates, counts), for
-  options that cannot be enumerated, or for images — Jev reads text only.
+  Use when a step is a DECISION over facts you already have, not a piece of writing — labelling,
+  filtering, ranking or triaging many items; deciding whether a run, build or claim succeeded;
+  picking the next action from options you can list; selecting which candidate you already found
+  is the intended one; judging safety, risk, quality or severity; screening untrusted text before
+  it enters context. Route by where the facts are: facts already in context go to jev_ask with
+  EVERY question batched into ONE call; items in a file or tool output go through the `use-jev
+  judge` CLI from a script, so the data never enters the conversation; one irreversible action
+  goes to jev_gate; gating every tool call belongs in the `use-jev gate --hook` PreToolUse hook.
+  Always honour a verdict with escalate:true. Do NOT use for producing new text or code, for exact
+  matches (ids, amounts, dates, counts), for options you cannot enumerate, or for images — Jev
+  reads text only.
 ---
 
 # use-jev — handing a decision to Jev
@@ -100,8 +99,14 @@ still there**, as a prior worth reading, not a blank.
 | --- | --- |
 | `writing` / `open_ended` | It was structurally yours. Take it. |
 | `oversized` | The state was too big. Shrink, summarise, or split the batch. |
+| `malformed` | The provider answered, but not in a shape readable for **this** question. The rest of the batch still stands — re-ask just this one. |
 | `unsure` | The answer is a hint, not a decision. Reason it out, or narrow the question. |
 | `unreachable` | The provider failed. Proceed as if Jev did not exist. |
+
+`oversized`, `malformed` and `unreachable` mean **no judgment was produced at all**. If you are
+gating an action, fail open on all three — treating "we could not judge it" as "ask" blocks a
+headless run, and a judgment sidecar being down must never block the agent. `unsure` is different:
+Jev did answer, just not confidently, and `ask` is the right response there.
 
 `confidenceFrom` matters: `reported` is Jev's own head (choice and score only); `estimated` is
 derived from the distribution and runs lower, so the two escalate below different thresholds.

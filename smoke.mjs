@@ -6,6 +6,8 @@
  *   1. mock backend over MCP  — tools, verdicts, escalation, screening, gate, route
  *   2. no backend             — the configuration problem is actionable
  *   3. CLI                    — doctor, judge, and the PreToolUse hook contract
+ *  3b. paths and the installer
+ *  3c. regressions            — the defects fixed after 0.3.1, one check per defect
  *   4. your real config       — a live call, or a clear skip
  */
 
@@ -34,7 +36,15 @@ const parse = (r) => JSON.parse(text(r));
 
 /** A keyless environment, so nothing on this machine leaks into a phase. */
 const bare = { ...process.env };
-for (const k of ["TYPESAFE_API_KEY", "JEV_API_KEY", "OPENROUTER_API_KEY", "AI_GATEWAY_API_KEY", "JEV_BACKEND"]) {
+for (const k of [
+  "TYPESAFE_API_KEY",
+  "JEV_API_KEY",
+  "OPENROUTER_API_KEY",
+  "AI_GATEWAY_API_KEY",
+  "JEV_BACKEND",
+  "JEV_CONFIDENCE_THRESHOLD",
+  "JEV_MAX_STATE_TOKENS",
+]) {
   delete bare[k];
 }
 const NOWHERE = "/nonexistent/use-jev.json";
@@ -317,7 +327,15 @@ console.log("\n[3b] path resolution and the installer");
       (await run(paths.NODE_BIN, ["--version"])).stdout.trim() === process.version,
     tildifyLocal(paths.NODE_BIN),
   );
-  check("NODE_BIN avoids a version-pinned path when PATH offers a stable one", !/\/\d+\.\d+\.\d+/.test(paths.NODE_BIN), paths.NODE_BIN);
+  // The fallback to process.execPath is the documented behaviour when no node on
+  // PATH matches the running version, so a version-pinned path is only a defect
+  // when a stable alternative was actually available.
+  const versionPinned = /\/\d+\.\d+\.\d+/.test(paths.NODE_BIN);
+  check(
+    "NODE_BIN is not version-pinned unless that is the documented fallback",
+    !versionPinned || paths.NODE_BIN === process.execPath,
+    tildifyLocal(paths.NODE_BIN),
+  );
 
   // A dry run must report a plan and touch nothing.
   const before = readFileSync(join(homedirLocal(), ".claude.json"), "utf8");
@@ -351,11 +369,131 @@ console.log("\n[3b] path resolution and the installer");
   );
   check("SKILL.md declares a name", /^name:\s*\S+/m.test(fm?.[1] ?? ""));
 
+  // The Agent Skills spec caps name at 64 and description at 1024 characters.
+  // Over-length frontmatter is rejected or silently truncated, and the description
+  // is the only thing an agent matches a request against — so it must fit.
+  const skillName = (fm?.[1].match(/^name:\s*(.+)$/m)?.[1] ?? "").trim();
+  const skillDesc = (fm?.[1] ?? "")
+    .split("\n")
+    .filter((l) => l && !l.startsWith("name:"))
+    .join(" ")
+    .replace(/^description:\s*[>|][-+]?\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  check("SKILL.md name fits the 64-character limit", skillName.length > 0 && skillName.length <= 64, `${skillName.length} chars`);
+  check(
+    "SKILL.md description fits the 1024-character limit",
+    skillDesc.length > 0 && skillDesc.length <= 1024,
+    `${skillDesc.length} chars`,
+  );
+
   const bad = await run(process.execPath, [cli, "install", "--agent", "not-an-agent"]).catch((e) => e);
   check("install rejects an unknown --agent", bad.code === 2 && /unknown agent/.test(bad.stderr ?? ""));
 
   const usage = await run(process.execPath, [cli, "nonsense-command"]).catch((e) => e);
   check("an unknown command prints usage and exits 2", usage.code === 2 && /install \[--dry-run\]/.test(usage.stderr ?? ""));
+}
+
+/* ------------------------------------------------------- 3c. the four fixes */
+
+console.log("\n[3c] regressions — defects fixed after 0.3.1");
+{
+  const { estimateTokens, NO_JUDGMENT_REASONS } = await import("./lib/protocol.mjs");
+  const { resolve } = await import("./lib/config.mjs");
+  const { gate, judge: judgeBatch } = await import("./lib/judge.mjs");
+
+  // The shipped config.example.json carries `confidenceThreshold: null`. Number(null)
+  // is 0, which reads as "threshold 0" — i.e. escalation silently switched off.
+  const cfgDir = mkdtempSync(join(tmpdir(), "use-jev-regress-"));
+  const cfg = join(cfgDir, "config.json");
+  writeFileSync(cfg, JSON.stringify({ backend: "mock", confidenceThreshold: null }));
+  const nullThreshold = resolve(["--config", cfg], { ...bare, JEV_BACKEND: "mock" });
+  check(
+    "a null confidenceThreshold stays absent instead of becoming 0",
+    nullThreshold.confidenceThreshold === undefined,
+    `confidenceThreshold=${nullThreshold.confidenceThreshold}`,
+  );
+  check(
+    "an explicit --threshold 0 is still honoured",
+    resolve(["--config", cfg, "--threshold", "0"], bare).confidenceThreshold === 0,
+  );
+
+  // Thai and CJK tokenize far denser than the flat characters/3.5 the estimator used.
+  const latin = estimateTokens("a".repeat(350));
+  const thai = estimateTokens("ก".repeat(350));
+  const cjk = estimateTokens("漢".repeat(350));
+  check("estimateTokens weights Thai above a flat latin estimate", thai > latin * 2, `latin=${latin} thai=${thai}`);
+  check("estimateTokens weights CJK above a flat latin estimate", cjk > latin * 2, `latin=${latin} cjk=${cjk}`);
+
+  // A tool input can be an entire file. The gate must send the shape, not the payload.
+  let reachedProvider = "";
+  const spy = {
+    name: "spy",
+    defaultModel: "spy",
+    async judge({ state }) {
+      reachedProvider = typeof state === "string" ? state : JSON.stringify(state);
+      return {
+        answers: [{ answer: "allow", distribution: { allow: 1, deny: 0 }, confidence: 1 }],
+        model: "spy",
+        latencyMs: 0,
+        usage: {},
+      };
+    },
+  };
+  const gated = await gate(spy, { state: "cwd: /tmp", tool: "Write", input: "x".repeat(200_000) });
+  check(
+    "the gate clips a huge tool input instead of shipping it whole",
+    reachedProvider.length < 6_000,
+    `${reachedProvider.length} chars reached the provider`,
+  );
+  check("the clip says what it dropped", /truncated, 196000 more characters not sent/.test(reachedProvider));
+  check("a fully confident gate still resolves to allow", gated.decision === "allow", gated.decision);
+
+  // One unreadable answer must cost its own question, never the batch.
+  const partial = {
+    name: "partial",
+    defaultModel: "partial",
+    async judge() {
+      return { answers: [{ answer: 0.9 }, { error: 'answer "b" has no noul value' }, { answer: 0.1 }], model: "partial", latencyMs: 0, usage: {} };
+    },
+  };
+  const batch = await judgeBatch(partial, {
+    state: "s",
+    questions: {
+      a: { type: "noul", instructions: "q a" },
+      b: { type: "noul", instructions: "q b" },
+      c: { type: "noul", instructions: "q c" },
+    },
+  });
+  const byId = Object.fromEntries(batch.verdicts.map((v) => [v.id, v]));
+  check("a malformed answer does not abandon the batch", byId.a.answer === 0.9 && byId.c.answer === 0.1, `a=${byId.a.answer} c=${byId.c.answer}`);
+  check(
+    "only the unreadable question escalates, and says why",
+    byId.b.escalate && byId.b.reason === "malformed" && !byId.a.escalate,
+    `b.reason=${byId.b.reason}`,
+  );
+  check(
+    "no-judgment reasons are declared as such",
+    NO_JUDGMENT_REASONS.has("malformed") && NO_JUDGMENT_REASONS.has("unreachable") && !NO_JUDGMENT_REASONS.has("unsure"),
+  );
+
+  // A provider that never answered is not a judgment. The hook must fail OPEN on it —
+  // an unanswerable "ask" blocks a headless run, which this hook promises never to do.
+  const hookWith = (env, args, raw) =>
+    new Promise((done) => {
+      const child = execFile(process.execPath, [cli, ...args], { env }, (error, stdout, stderr) => done({ error, stdout, stderr }));
+      child.stdin.end(raw);
+    });
+  const deadHook = await hookWith(
+    { ...bare, USE_JEV_CONFIG: NOWHERE, JEV_API_KEY: "x" },
+    ["gate", "--hook", "--backend", "typesafe", "--base-url", "http://127.0.0.1:9"],
+    JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" }, cwd: "/tmp" }),
+  );
+  check(
+    "hook fails open when the provider is unreachable, instead of asking",
+    deadHook.stdout.trim() === "" && /failing open/.test(deadHook.stderr),
+    (deadHook.stderr ?? "").trim().split("\n")[0],
+  );
 }
 
 /* -------------------------------------------------------- 4. real config */

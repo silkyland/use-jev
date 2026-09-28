@@ -19,7 +19,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { availableProviders, resolve } from "./lib/config.mjs";
 import { gate, judge } from "./lib/judge.mjs";
-import { ESTIMATED_CONFIDENCE_THRESHOLD, REPORTED_CONFIDENCE_THRESHOLD } from "./lib/protocol.mjs";
+import { ESTIMATED_CONFIDENCE_THRESHOLD, NO_JUDGMENT_REASONS, REPORTED_CONFIDENCE_THRESHOLD } from "./lib/protocol.mjs";
 import { AGENTS, detectedSkillDirs, hookFragment, install } from "./lib/install.mjs";
 import { NAME, PACKAGE_ROOT, SERVER_ENTRY, VERSION, launchCommand, tildify } from "./lib/paths.mjs";
 
@@ -187,6 +187,18 @@ async function hookGate() {
     });
 
     if (result.decision === "allow") return; // stay silent; never loosen
+
+    // A provider that never answered is not a judgment, and neither is a state we
+    // refused to send or an answer we could not read. All of those must fail OPEN:
+    // an unanswerable "ask" blocks a headless run, which is exactly what this hook
+    // promises never to do.
+    if (NO_JUDGMENT_REASONS.has(result.reason)) {
+      process.stderr.write(
+        `use-jev gate: no judgment (${result.reason}${result.hint ? ` — ${result.hint}` : ""}) — failing open.\n`,
+      );
+      return;
+    }
+
     out({
       hookSpecificOutput: {
         hookEventName: "PreToolUse",

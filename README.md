@@ -92,8 +92,19 @@ means it is yours to take over — and the answer is **still there**, as a prior
 | `writing` | The step must produce new content. Structurally the LLM's. |
 | `open_ended` | Options can't be enumerated, or the question is malformed. Caught before any call. |
 | `oversized` | The state is over ~30k tokens. Shrink or split it. Caught before any call. |
+| `malformed` | The provider answered, but not in a shape we could read **for this question**. The rest of the batch is unaffected. |
 | `unsure` | Answered below the confidence threshold. Treat the answer as a hint. |
 | `unreachable` | The provider failed. Proceed as if Jev did not exist. |
+
+`writing` is produced by `jev_route`, not by a verdict — a step that must write is
+routed away before any call is made, so `judge` never returns it.
+
+**One bad answer costs one question, not the batch.** The API is called with every
+question in a single request, so a single unreadable answer would otherwise take the
+whole batch down with it — which would punish exactly the batching this tool exists
+to encourage. The three reasons that mean *no judgment was produced at all*
+(`oversized`, `malformed`, `unreachable`) are exported as `NO_JUDGMENT_REASONS`; a
+gate must fail open on all three.
 
 `confidenceFrom` says where the number came from, and the two escalate below different
 thresholds: `reported` is Jev's own head (choice/score only, threshold **0.5**), `estimated` is
@@ -156,8 +167,13 @@ It exits `0` when every verdict stands and `3` when any escalated, so a script c
 this install's own paths filled in. Merge its `hooks` key into your settings.
 
 It only ever **tightens**: `deny` → deny with a reason, unsure → ask, `allow` → no output at all
-so your normal permission flow decides. Every failure — bad input, no credential, provider down
-— **fails open**, because a judgment sidecar being down must never block the agent.
+so your normal permission flow decides. Every failure — bad input, no credential, provider down,
+a state we refused to send, an answer we could not read — **fails open**, because a judgment
+sidecar being down must never block the agent. "Fails open" means silent plus a line on stderr:
+a gate that answers `ask` when nobody can answer it refuses the call, which is a block.
+
+The tool input is clipped before it is sent (`DEFAULT_GATE_MAX_INPUT_CHARS`, 4000). A `Write` of a
+200 kB file is one hook event, and the gate needs the shape of the action, not its payload.
 
 It is deliberately not enabled by `install`: it sends a description of every matched tool call
 to your configured provider.

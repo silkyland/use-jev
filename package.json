@@ -1,6 +1,6 @@
 {
   "name": "@silkyland/use-jev",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "MCP server + CLI that expose TypeSafe's Jev judgment model as typed noul/choice/score tools, with escalation, an action gate and four interchangeable backends",
   "type": "module",
   "main": "index.mjs",
